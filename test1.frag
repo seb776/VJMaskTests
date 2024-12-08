@@ -82,6 +82,34 @@ uniform sampler2D img_00_Background;
 
 #define sat(a) clamp(a, 0., 1.)
 #define rot(a) mat2(cos(a), -sin(a), sin(a), cos(a))
+#define PI acos(-1.)
+float lightningPath(vec2 uv, float id)
+{
+   float freq = uv.y*220.*sin(uv.y*5.+id)+id*.1;
+   return 0.02*asin(sin(freq*.1-time))
+   +0.002*asin(sin(freq*2.+time*5.))
+   +0.003*asin(sin(freq*.5+time));
+}
+
+vec3 rdrLightnings(vec2 uv)
+{
+    float an2 = atan(uv.y, uv.x);
+
+    uv *= rot(asin(sin(an2*5.+length(uv)*25.-time*3.))*.07);
+    vec3 col = vec3(0.);
+    float an = atan(uv.y, uv.x);
+    float stpa = PI/(5.);
+    float id = floor((an+stpa*.5)/stpa);
+    float sector = mod(an+stpa*.5,stpa)-stpa*.5;
+    uv = vec2(sin(sector), cos(sector))*length(uv);
+    float shape = abs(uv.x-lightningPath(uv, id))-.001;
+    col = mix(col, vec3(1.), 1.-sat(shape*500.));
+    col += vec3(0.65, 0.4, 0.81)*(1.-sat(shape*30.));
+    col *= sat(fract(time*10.)*.5+.5);
+    return col;
+}
+
+
     vec3 rdrCirc(vec2 uv, float t)
     {
         vec3 col = vec3(0.);
@@ -242,6 +270,7 @@ vec3 rdr(vec2 uvtex, vec2 uv)
 
   vec3 col = vec3(0.);
   col += abs(uv.x*2.)*rdrCircuit(3.*uv*rot(acos(-1.)*.5))*0.;
+  col += rdrLightnings(uv);
 
   col += draw_eye(uv-vec2(0.,0.165), 1.);
   vec2 offeye = vec2(-0.04,-0.012);
