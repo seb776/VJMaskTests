@@ -1,5 +1,6 @@
 /*
 {
+"audio": true,
 "IMPORTED": {
 "img_00_Background": {
   "PATH": "./images/00_Background.png"
@@ -72,9 +73,12 @@ uniform sampler2D img_00_Background;
     uniform sampler2D img_11_Middle;
     uniform sampler2D img_12_Top2;
     uniform sampler2D img_13_Top;
-    uniform sampler2D noiseTex;
+    //uniform sampler2D noiseTex;
     uniform sampler2D outlineTex;
     uniform sampler2D mouthTexture;
+    uniform sampler2D spectrum;
+
+    #define FFT(a) texture2D(spectrum, vec2(a, 0.)).x
 
 #define sat(a) clamp(a, 0., 1.)
 #define rot(a) mat2(cos(a), -sin(a), sin(a), cos(a))
@@ -122,8 +126,9 @@ vec3 draw_background(vec2 uv)
   col = sat(col);
   col += vec3(.2,.2,.8);
   col += vec3(.2,.2,.8);
-  float tex = texture2D(noiseTex, fract(uv*vec2(1.,.2)-.5-vec2(sign(uv.x)*abs(uv.y)*.5,time*.01))).x;
-  return sat(col*(1.-pow(abs(uv.y), .2)))*sat((length(uv)-.1)*15.)*sat(1.-.2*tex);
+  float tex = 1.;//texture2D(noiseTex, fract(uv*vec2(1.,.2)-.5-vec2(sign(uv.x)*abs(uv.y)*.5,time*.01))).x;
+  col = sat(col*(1.-pow(abs(uv.y), .2)))*sat((length(uv)-.1)*15.)*sat(1.-.2*tex);
+  return col.xzy;
 }
 
 vec3 draw_ears(vec2 uv)
@@ -133,7 +138,8 @@ vec3 draw_ears(vec2 uv)
   uv *= 1.-2.*length(uv-vec2(0.,.15));
   uv = uv * vec2(1.,.1);
   uv = fract(uv);
-  return pow(texture2D(noiseTex, uv).x, .25)*(1.-sat((length(ouv-vec2(0.,.2))-.1)*15.))+vec3(.1);
+  return vec3(.5);
+//  return pow(texture2D(noiseTex, uv).x, .25)*(1.-sat((length(ouv-vec2(0.,.2))-.1)*15.))+vec3(.1);
 }
 
 vec3 draw_bottomplate(vec2 uv)
@@ -143,7 +149,8 @@ vec3 draw_bottomplate(vec2 uv)
   uv *= 1.-2.*length(uv-vec2(0.,.15));
   uv = uv * vec2(1.,.1);
   uv = fract(uv);
-  return pow(texture2D(noiseTex, uv).x, .25)*(1.-sat((length(ouv-vec2(0.,-.2))-.0)*15.))+vec3(.1);
+  return vec3(.5);
+//  return pow(texture2D(noiseTex, uv).x, .25)*(1.-sat((length(ouv-vec2(0.,-.2))-.0)*15.))+vec3(.1);
 }
 
 vec3 draw_eye(vec2 uv, float sz)
@@ -162,13 +169,13 @@ vec3 draw_eye(vec2 uv, float sz)
   vec3 col = vec3(0.);
   col = mix(col,  vec3(1.), 1.-sat(c*500.));
   col = mix(col, vec3(0.), 1.-sat(inn*500.));
-  col = mix(col, vec3(1., 0, 0)*sat(sin(an*15.)*.3+.7), 1.-sat(hole*500.));
-  return col*(1.-sat(length(pos)*10.));
+  col = mix(col, vec3(0.23, 0.89, 0.47)*sat(sin(an*15.)*.3+.7), 1.-sat(hole*500.));
+  return col*(1.-sat(length(pos)*10.))*2.;
 }
 
 vec3 rdrskin(vec2 uv)
 {
-  return vec3(.8, .1, .2)*pow(1.-sat(length(uv-vec2(0.,.05))*12.), .35);
+  return vec3(0.39, 0.24, 0.76)*pow(1.-sat(length(uv-vec2(0.,.05))*12.), .35);
 }
 
 vec3 rdrwoods(vec2 uv)
@@ -246,10 +253,10 @@ vec3 rdr(vec2 uvtex, vec2 uv)
   col += eyer;
 
   col = mix(col, draw_background(uv), colA);
-  col = mix(col, vec3(1., .2, .2)*.75, colB);
-  col = mix(col, vec3(.8, .1, .2)*.5, colC);
-  col = mix(col, vec3(.8, .1, .2)*.5, colD);
-  col= mix(col, vec3(.8, .1, .2), colE);
+  col = mix(col, vec3(0.39, 0.24, 0.76)*.75, colB);
+  col = mix(col, vec3(0.39, 0.24, 0.76)*.5, colC);
+  col = mix(col, vec3(0.39, 0.24, 0.76)*.5, colD);
+  col= mix(col, vec3(0.39, 0.24, 0.76), colE);
   //col= mix(col, vec3(1.), colF);
   col= mix(col, vec3(1.), colG);
   col= mix(col, rdrskin(uv), colH);
@@ -268,11 +275,18 @@ col = mix(col, vec3(.3,.7,.9)*sat(sin(length(uv)*10.-2.*time)), outline);
 
 vec3 rdr2(vec2 uvtex, vec2 uv)
 {
-  vec2 off = vec2(0.002, 0.);
+  float t = time*.3+FFT(.1)*3.;
+  vec2 shake = vec2(sin(t*.33), cos(t))*.02;
+  uv += shake;
+  uvtex += shake*1.5;
+float rott = sin(t)*.02;
+  uv *= rot(rott);
+  uvtex *= rot(rott);
+  vec2 off = vec2(0.02, 0.)*pow(FFT(abs(uv.y)*.15), 4.)*.5;
   vec3 col = vec3(0.);
-  col.x = rdr(uvtex+off, uv+off).x;
+  col.x = rdr(uvtex+off*1.5, uv+off).x;
   col.y = rdr(uvtex, uv).y;
-  col.z = rdr(uvtex-off, uv-off).z;
+  col.z = rdr(uvtex-off*1.5, uv-off).z;
   return col;
 }
 
